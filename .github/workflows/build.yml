@@ -58,7 +58,8 @@ jobs:
         if: steps.v.outputs.skip != 'true'
         with:
           context: .
-          push: true
+          # Docker (not OCI) manifest: Unraid's update check only accepts Docker manifests/lists and OCI indexes.
+          outputs: type=registry,oci-mediatypes=false
           pull: true
           provenance: false
           sbom: false
