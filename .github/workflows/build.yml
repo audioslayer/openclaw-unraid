@@ -1,0 +1,86 @@
+name: Build image
+
+# Builds ghcr.io/<owner>/openclaw-unraid:<version> and :latest for each new OpenClaw release.
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: OpenClaw version to build (blank = latest stable)
+        required: false
+  push:
+    branches: [main]
+    paths: [Dockerfile, start.sh, .github/workflows/build.yml]
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/openclaw-unraid
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve version
+        id: v
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          V="$INPUT_VERSION"
+          [ -n "$V" ] || V=$(curl -fsSL https://registry.npmjs.org/openclaw/latest | jq -r .version)
+          echo "OpenClaw version: $V"
+          docker manifest inspect "ghcr.io/openclaw/openclaw:${V}-browser" > /dev/null
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = schedule ] && docker manifest inspect "$IMAGE:$V" > /dev/null 2>&1; then
+            echo "Already built; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.v.outputs.skip != 'true'
+
+      - uses: docker/build-push-action@v6
+        if: steps.v.outputs.skip != 'true'
+        with:
+          context: .
+          push: true
+          pull: true
+          provenance: false
+          sbom: false
+          build-args: OPENCLAW_VERSION=${{ steps.v.outputs.version }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.v.outputs.version }}
+            ${{ env.IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+            org.opencontainers.image.description=OpenClaw gateway (official -browser image) with extra CLI tools for Unraid
+
+      # Recording each built version keeps the repo active, so GitHub doesn't pause the schedule.
+      - name: Record built version
+        if: steps.v.outputs.skip != 'true'
+        env:
+          V: ${{ steps.v.outputs.version }}
+        run: |
+          [ "$(cat VERSION 2>/dev/null)" = "$V" ] && exit 0
+          echo "$V" > VERSION
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "Built OpenClaw $V"
+          git push
