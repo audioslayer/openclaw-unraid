@@ -9,7 +9,7 @@ ghcr.io/audioslayer/openclaw-unraid:<version>   # pinned, e.g. 2026.10.7 (use fo
 
 ## What's added on top of the official image
 
-- CLI tools for agent skills and scripts: `jq`, `rclone`, `gh`, `sqlite3`, `rsync`, `pip`, plus a few Python packages (selenium, plexapi, python-kasa, PyMySQL, ...)
+- CLI tools for agent skills and scripts: `jq`, `rclone`, `gh`, `sqlite3`, `rsync`, `adb`, `pip`, plus a few Python packages (selenium, plexapi, python-kasa, PyMySQL, ...)
 - [supercronic](https://github.com/aptible/supercronic): if `$HOME/crontab` exists, it runs alongside the gateway
 - If `$HOME/workspace-server.js` exists, it is kept running with node alongside the gateway
 - `/usr/bin/openclaw` and `/usr/bin/google-chrome(-stable)` (the bundled Chromium) for scripts that expect those paths

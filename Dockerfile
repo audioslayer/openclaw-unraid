@@ -6,7 +6,7 @@ FROM ghcr.io/openclaw/openclaw:${OPENCLAW_VERSION}-browser
 
 USER root
 RUN apt-get update \
- && apt-get install -y --no-install-recommends jq rclone sqlite3 python3-pip gh openssh-client rsync procps less tzdata \
+ && apt-get install -y --no-install-recommends jq rclone sqlite3 python3-pip gh openssh-client rsync procps less tzdata adb \
  && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --no-cache-dir --break-system-packages \
       selenium PyMySQL mysql-connector-python python-dotenv plexapi python-kasa youtube-transcript-api requests
