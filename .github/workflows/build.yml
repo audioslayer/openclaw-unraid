@@ -28,9 +28,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -44,17 +44,26 @@ jobs:
           V="$INPUT_VERSION"
           [ -n "$V" ] || V=$(curl -fsSL https://registry.npmjs.org/openclaw/latest | jq -r .version)
           echo "OpenClaw version: $V"
-          docker manifest inspect "ghcr.io/openclaw/openclaw:${V}-browser" > /dev/null
           echo "version=$V" >> "$GITHUB_OUTPUT"
+          # npm can publish before the upstream -browser image exists; skip now and retry on the next scheduled run.
+          if ! docker manifest inspect "ghcr.io/openclaw/openclaw:${V}-browser" > /dev/null 2>&1; then
+            if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+              echo "::notice::Upstream image ghcr.io/openclaw/openclaw:${V}-browser is not published yet; will retry on the next run."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::Upstream image ghcr.io/openclaw/openclaw:${V}-browser does not exist."
+            exit 1
+          fi
           if [ "$GITHUB_EVENT_NAME" = schedule ] && docker manifest inspect "$IMAGE:$V" > /dev/null 2>&1; then
             echo "Already built; nothing to do."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
         if: steps.v.outputs.skip != 'true'
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         if: steps.v.outputs.skip != 'true'
         with:
           context: .
